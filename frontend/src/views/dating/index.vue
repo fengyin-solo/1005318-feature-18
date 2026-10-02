@@ -7,7 +7,7 @@
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记测年送检单</button>
-        <button class="btn" type="button" @click="exportRows">导出测年送检清单</button>
+        <button class="btn" type="button" @click="exportRows">打包送检材料</button>
       </div>
     </header>
 
@@ -65,7 +65,8 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条测年送检记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-if="exportMessage" :class="exportOk ? 'ok-text' : 'error-text'">{{ exportMessage }}</span>
+      <span v-else-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
 </template>
@@ -73,8 +74,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
+import { exportDatingMaterials } from '@/api/dating-export'
 import {
-  downloadEntries,
   listEntries,
   moduleMeta,
   runAction as applyAction,
@@ -90,6 +91,8 @@ const stats = [{"label": "待送检批次", "value": 0}, {"label": "已送检批
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const exportMessage = ref('')
+const exportOk = ref(true)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
@@ -105,7 +108,11 @@ function resetFilters() {
 }
 
 function exportRows() {
-  downloadEntries(meta.key)
+  errorMessage.value = ''
+  // 直接把列表当前筛选结果交给打包：导出条目与列表严格一致，不多也不少。
+  const result = exportDatingMaterials(rows.value)
+  exportOk.value = result.ok
+  exportMessage.value = result.message
 }
 
 function openCreate() {
@@ -114,6 +121,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  exportMessage.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message
